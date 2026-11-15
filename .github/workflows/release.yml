@@ -1,0 +1,23 @@
+# Ogni Fiberapp.apk nuovo diventa una release "Fiberapp x.y" (la versione è nel messaggio del commit)
+name: Release
+on:
+  push:
+    branches: [main]
+    paths: [Fiberapp.apk]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pubblica la release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          messaggio=$(git log -1 --format=%B -- Fiberapp.apk)
+          versione=$(printf '%s\n' "$messaggio" | head -1 | grep -oP '^Fiberapp \K[0-9]+(\.[0-9]+)+') || { echo "Nel messaggio manca 'Fiberapp x.y'"; exit 1; }
+          if gh release view "v$versione" >/dev/null 2>&1; then echo "Release v$versione già presente"; exit 0; fi
+          note=$(printf '%s\n' "$messaggio" | tail -n +2 | grep -v -e '^Co-Authored-By:' -e '^Claude-Session:' | sed '/^$/d')
+          gh release create "v$versione" Fiberapp.apk --title "Fiberapp $versione" --notes "${note:-Fiberapp $versione}" --latest
